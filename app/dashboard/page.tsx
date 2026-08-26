@@ -16,6 +16,7 @@ import EntryList from "@/components/EntryList";
 import DailyBarChart from "@/components/charts/DailyBarChart";
 import TopicPieChart from "@/components/charts/TopicPieChart";
 import TrendLineChart from "@/components/charts/TrendLineChart";
+import { showToast, showErrorAlert } from "@/lib/alerts";
 
 function getToday(): string {
   return new Date().toISOString().split("T")[0];
@@ -49,7 +50,6 @@ export default function Dashboard() {
   >([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [addSuccess, setAddSuccess] = useState<string | null>(null);
   const isMounted = useRef(true);
 
   const loadData = useCallback(async () => {
@@ -60,12 +60,10 @@ export default function Dashboard() {
     const today = getToday();
 
     try {
-      // Load today's entries
       const dateEntries = await getEntriesByDate(user.uid, today);
       if (!isMounted.current) return;
       setEntries(dateEntries);
 
-      // Topic distribution
       const topicMap: Record<string, number> = {};
       dateEntries.forEach((e) => {
         topicMap[e.topic] = (topicMap[e.topic] || 0) + e.duration;
@@ -85,7 +83,6 @@ export default function Dashboard() {
     }
 
     try {
-      // Last 7 days for bar chart
       const weekStart = shiftDate(today, -6);
       const weekEntries = await getEntriesRange(user.uid, weekStart, today);
       if (!isMounted.current) return;
@@ -110,7 +107,6 @@ export default function Dashboard() {
     }
 
     try {
-      // Last 30 days for trend
       const monthStart = shiftDate(today, -29);
       const monthEntries = await getEntriesRange(user.uid, monthStart, today);
       if (!isMounted.current) return;
@@ -160,7 +156,7 @@ export default function Dashboard() {
 
   if (loading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -174,14 +170,13 @@ export default function Dashboard() {
   const handleAdd = async (topic: string, duration: number, date: string) => {
     if (!user) return;
     setError(null);
-    setAddSuccess(null);
     try {
       await addEntry(user.uid, { topic, duration, date });
-      setAddSuccess(`✅ "${topic}" added successfully! (${formatDuration(duration)})`);
-      setTimeout(() => setAddSuccess(null), 3000);
+      showToast("success", `Added "${topic}" (${formatDuration(duration)})`);
       await loadData();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      showErrorAlert("Error adding entry", msg);
       setError("Failed to add entry: " + msg);
     }
   };
@@ -190,63 +185,54 @@ export default function Dashboard() {
     if (!user) return;
     try {
       await deleteEntry(user.uid, entryId);
+      showToast("success", "Entry deleted successfully");
       await loadData();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      showErrorAlert("Error deleting entry", msg);
       setError("Failed to delete entry: " + msg);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Error Message */}
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-sm">
             ❌ {error}
-          </div>
-        )}
-
-        {/* Success Message */}
-        {addSuccess && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">
-            {addSuccess}
           </div>
         )}
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-            <p className="text-sm text-gray-500 mb-1">Today&apos;s Study Time</p>
-            <p className="text-3xl font-bold text-blue-600">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Today&apos;s Study Time</p>
+            <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
               {formatDuration(totalMinutes)}
             </p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-            <p className="text-sm text-gray-500 mb-1">Topics Covered</p>
-            <p className="text-3xl font-bold text-green-600">{totalTopics}</p>
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Topics Covered</p>
+            <p className="text-3xl font-bold text-green-600 dark:text-green-400">{totalTopics}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-            <p className="text-sm text-gray-500 mb-1">Avg per Topic</p>
-            <p className="text-3xl font-bold text-purple-600">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Avg per Topic</p>
+            <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">
               {formatDuration(avgMinutesPerTopic)}
             </p>
           </div>
         </div>
 
-        {/* Add Entry Form */}
         <div className="mb-6">
           <AddEntryForm onAdd={handleAdd} selectedDate={getToday()} />
         </div>
 
-        {/* Today's Entries */}
         <div className="mb-6">
           <EntryList entries={entries} onDelete={handleDelete} dateLabel="Today" />
         </div>
 
-        {/* Charts */}
         {dataLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

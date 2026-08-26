@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { useTheme } from "@/lib/theme-context";
 
 interface TopicPieChartProps {
   data: { topic: string; totalMinutes: number }[];
@@ -27,13 +28,16 @@ const COLORS = [
 ];
 
 export default function TopicPieChart({ data }: TopicPieChartProps) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
         🎯 Topic Distribution
       </h3>
       {data.length === 0 ? (
-        <p className="text-gray-500 text-center py-8">No data yet</p>
+        <p className="text-gray-500 dark:text-gray-400 text-center py-8">No data yet</p>
       ) : (
         <ResponsiveContainer width="100%" height={280}>
           <PieChart>
@@ -49,7 +53,7 @@ export default function TopicPieChart({ data }: TopicPieChartProps) {
               label={({ name, percent }) =>
                 `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`
               }
-              labelLine={{ stroke: "#9ca3af" }}
+              labelLine={{ stroke: isDark ? "#64748b" : "#9ca3af" }}
             >
               {data.map((_, index) => (
                 <Cell
@@ -60,9 +64,19 @@ export default function TopicPieChart({ data }: TopicPieChartProps) {
             </Pie>
             <Tooltip
               contentStyle={{
+                backgroundColor: isDark ? "#1e293b" : "#ffffff",
+                borderColor: isDark ? "#334155" : "#e2e8f0",
+                color: isDark ? "#f8fafc" : "#0f172a",
                 borderRadius: "8px",
-                border: "1px solid #e5e7eb",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.2)",
+              }}
+              itemStyle={{
+                color: isDark ? "#f8fafc" : "#0f172a",
+                fontWeight: 500,
+              }}
+              labelStyle={{
+                color: isDark ? "#e2e8f0" : "#1e293b",
+                fontWeight: 600,
               }}
               formatter={(value) => {
                 const mins = Number(value);
@@ -71,7 +85,13 @@ export default function TopicPieChart({ data }: TopicPieChartProps) {
                 return [h > 0 ? `${h}h ${m}m` : `${m}m`, "Time Spent"];
               }}
             />
-            <Legend />
+            <Legend
+              formatter={(value) => (
+                <span className="text-gray-700 dark:text-gray-300 text-xs font-medium">
+                  {value}
+                </span>
+              )}
+            />
           </PieChart>
         </ResponsiveContainer>
       )}
