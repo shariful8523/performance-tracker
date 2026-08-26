@@ -24,8 +24,15 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">PT</span>
+            <div className="relative w-9 h-9 flex items-center justify-center">
+              <Image
+                src="/logo.png"
+                alt="Performance Tracker Logo"
+                width={36}
+                height={36}
+                className="object-contain"
+                priority
+              />
             </div>
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">
               Performance Tracker

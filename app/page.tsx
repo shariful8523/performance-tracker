@@ -4,6 +4,8 @@ import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
+import Image from "next/image";
+
 export default function Home() {
   const { user, loading, signInWithGoogle } = useAuth();
   const router = useRouter();
@@ -25,8 +27,15 @@ export default function Home() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="text-center max-w-md mx-auto px-6">
-        <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-          <span className="text-white font-bold text-3xl">PT</span>
+        <div className="relative w-28 h-28 mx-auto mb-6 flex items-center justify-center">
+          <Image
+            src="/logo.png"
+            alt="Performance Tracker Logo"
+            width={112}
+            height={112}
+            className="object-contain drop-shadow-md"
+            priority
+          />
         </div>
 
         <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">
