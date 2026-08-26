@@ -69,6 +69,17 @@ export async function getEntriesRange(
   return entries.sort((a, b) => a.date.localeCompare(b.date));
 }
 
+export async function getAllEntries(userId: string): Promise<LearningEntry[]> {
+  const ref = collection(db, "users", userId, "entries");
+  const snapshot = await getDocs(ref);
+  const entries = snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as LearningEntry[];
+  // Sort client-side by date descending
+  return entries.sort((a, b) => b.date.localeCompare(a.date));
+}
+
 export async function deleteEntry(userId: string, entryId: string) {
   const ref = doc(db, "users", userId, "entries", entryId);
   await deleteDoc(ref);
