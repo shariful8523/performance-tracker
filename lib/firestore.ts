@@ -7,7 +7,6 @@ import {
   getDocs,
   deleteDoc,
   doc,
-  orderBy,
   Timestamp,
 } from "firebase/firestore";
 
@@ -36,16 +35,18 @@ export async function getEntriesByDate(
   date: string
 ): Promise<LearningEntry[]> {
   const ref = collection(db, "users", userId, "entries");
-  const q = query(
-    ref,
-    where("date", "==", date),
-    orderBy("createdAt", "desc")
-  );
+  const q = query(ref, where("date", "==", date));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({
+  const entries = snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as LearningEntry[];
+  // Sort client-side by createdAt descending
+  return entries.sort((a, b) => {
+    const aTime = a.createdAt?.toMillis() ?? 0;
+    const bTime = b.createdAt?.toMillis() ?? 0;
+    return bTime - aTime;
+  });
 }
 
 export async function getEntriesRange(
@@ -57,14 +58,15 @@ export async function getEntriesRange(
   const q = query(
     ref,
     where("date", ">=", startDate),
-    where("date", "<=", endDate),
-    orderBy("date", "asc")
+    where("date", "<=", endDate)
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({
+  const entries = snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as LearningEntry[];
+  // Sort client-side by date ascending
+  return entries.sort((a, b) => a.date.localeCompare(b.date));
 }
 
 export async function deleteEntry(userId: string, entryId: string) {
