@@ -19,6 +19,8 @@ export const metadata: Metadata = {
   description: "Track your daily learning progress",
   icons: {
     icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
   },
 };
 
