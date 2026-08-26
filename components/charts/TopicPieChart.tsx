@@ -64,7 +64,12 @@ export default function TopicPieChart({ data }: TopicPieChartProps) {
                 border: "1px solid #e5e7eb",
                 boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
               }}
-              formatter={(value) => [`${value} min`, "Time Spent"]}
+              formatter={(value) => {
+                const mins = Number(value);
+                const h = Math.floor(mins / 60);
+                const m = mins % 60;
+                return [h > 0 ? `${h}h ${m}m` : `${m}m`, "Time Spent"];
+              }}
             />
             <Legend />
           </PieChart>

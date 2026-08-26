@@ -56,7 +56,12 @@ export default function TrendLineChart({ data }: TrendLineChartProps) {
                 border: "1px solid #e5e7eb",
                 boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
               }}
-              formatter={(value) => [`${value} min`, "Study Time"]}
+              formatter={(value) => {
+                const mins = Number(value);
+                const h = Math.floor(mins / 60);
+                const m = mins % 60;
+                return [h > 0 ? `${h}h ${m}m` : `${m}m`, "Study Time"];
+              }}
             />
             <Line
               type="monotone"
