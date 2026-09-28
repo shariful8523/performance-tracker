@@ -74,8 +74,9 @@ async function getTodayStudyData() {
     }
   });
 
-  // Try to find user custom goal (default 120 minutes = 2 hours)
+  // Try to find user custom goal and reminder toggle (default 120 minutes = 2 hours)
   let dailyGoal = 120;
+  let remindersEnabled = true;
   try {
     const prefsSnapshot = await adminDb.collectionGroup("preferences").get();
     if (!prefsSnapshot.empty) {
@@ -83,12 +84,15 @@ async function getTodayStudyData() {
       if (data?.dailyGoal && Number(data.dailyGoal) > 0) {
         dailyGoal = Number(data.dailyGoal);
       }
+      if (data?.remindersEnabled !== undefined) {
+        remindersEnabled = Boolean(data.remindersEnabled);
+      }
     }
   } catch (err) {
     console.error("Could not fetch user preferences, using default 120m:", err);
   }
 
-  return { totalMinutes, dailyGoal, topicMap, today };
+  return { totalMinutes, dailyGoal, remindersEnabled, topicMap, today };
 }
 
 export async function GET(request: NextRequest) {
@@ -119,8 +123,14 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const { totalMinutes, dailyGoal, topicMap, today } =
+    const { totalMinutes, dailyGoal, remindersEnabled, topicMap, today } =
       await getTodayStudyData();
+
+    if (!force && !remindersEnabled) {
+      return NextResponse.json({
+        message: "Reminders are disabled in Settings by user",
+      });
+    }
 
     const remaining = Math.max(0, dailyGoal - totalMinutes);
     const percentage = Math.min(100, Math.round((totalMinutes / dailyGoal) * 100));
