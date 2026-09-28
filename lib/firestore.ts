@@ -84,3 +84,25 @@ export async function deleteEntry(userId: string, entryId: string) {
   const ref = doc(db, "users", userId, "entries", entryId);
   await deleteDoc(ref);
 }
+
+export async function saveUserPreferences(
+  userId: string,
+  prefs: { dailyGoal: number }
+) {
+  const ref = doc(db, "users", userId, "settings", "preferences");
+  const { setDoc } = await import("firebase/firestore");
+  await setDoc(ref, prefs, { merge: true });
+}
+
+export async function getUserPreferences(
+  userId: string
+): Promise<{ dailyGoal?: number } | null> {
+  const ref = doc(db, "users", userId, "settings", "preferences");
+  const { getDoc } = await import("firebase/firestore");
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    return snap.data() as { dailyGoal?: number };
+  }
+  return null;
+}
+

@@ -53,52 +53,42 @@ async function sendTelegramMessage(text: string) {
   return res.json();
 }
 
-// Fetch all entries for all users for today (we iterate user docs)
+// Fetch all entries for today across all users via collectionGroup
 async function getTodayStudyData() {
   const today = getTodayBD();
 
-  // Get all user documents
-  const usersSnapshot = await adminDb.collection("users").listDocuments();
+  // Query all entries across collectionGroup without index requirement
+  const entriesSnapshot = await adminDb
+    .collectionGroup("entries")
+    .get();
 
   let totalMinutes = 0;
-  let dailyGoal = 120; // Default 2 hours
   const topicMap: Record<string, number> = {};
-  let userName = "Shariful";
 
-  for (const userDoc of usersSnapshot) {
-    const userId = userDoc.id;
-
-    // Get today's entries for this user
-    const entriesRef = userDoc.collection("entries");
-    const entriesSnapshot = await entriesRef.where("date", "==", today).get();
-
-    entriesSnapshot.docs.forEach((doc) => {
-      const data = doc.data();
+  entriesSnapshot.docs.forEach((doc) => {
+    const data = doc.data();
+    if (data.date === today) {
       totalMinutes += data.duration || 0;
       const topic = data.topic || "Unknown";
       topicMap[topic] = (topicMap[topic] || 0) + (data.duration || 0);
-    });
+    }
+  });
 
-    // Try to get user settings (daily goal)
-    const settingsDoc = await adminDb
-      .collection("users")
-      .doc(userId)
-      .collection("settings")
-      .doc("preferences")
-      .get();
-
-    if (settingsDoc.exists) {
-      const settings = settingsDoc.data();
-      if (settings?.dailyGoal) {
-        dailyGoal = settings.dailyGoal;
-      }
-      if (settings?.userName) {
-        userName = settings.userName;
+  // Try to find user custom goal (default 120 minutes = 2 hours)
+  let dailyGoal = 120;
+  try {
+    const prefsSnapshot = await adminDb.collectionGroup("preferences").get();
+    if (!prefsSnapshot.empty) {
+      const data = prefsSnapshot.docs[0].data();
+      if (data?.dailyGoal && Number(data.dailyGoal) > 0) {
+        dailyGoal = Number(data.dailyGoal);
       }
     }
+  } catch (err) {
+    console.error("Could not fetch user preferences, using default 120m:", err);
   }
 
-  return { totalMinutes, dailyGoal, topicMap, userName, today };
+  return { totalMinutes, dailyGoal, topicMap, today };
 }
 
 export async function GET(request: NextRequest) {
@@ -106,15 +96,24 @@ export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  const url = new URL(request.url);
+  const secretParam = url.searchParams.get("secret");
+  const force = url.searchParams.get("force") === "true";
+
+  // Check auth via header or query param
+  const isAuthorized =
+    (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
+    (cronSecret && secretParam === cronSecret);
+
+  if (!isAuthorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const currentHour = getCurrentHourBD();
 
-    // Only send between 7 PM (19) and 11 PM (23) Bangladesh time
-    if (currentHour < 19 || currentHour > 23) {
+    // Only send between 7 PM (19) and 11 PM (23) Bangladesh time (unless force=true)
+    if (!force && (currentHour < 19 || currentHour > 23)) {
       return NextResponse.json({
         message: `Skipped — current BD hour is ${currentHour}, outside 7PM-12AM window`,
       });
@@ -130,7 +129,7 @@ export async function GET(request: NextRequest) {
     // Build topic breakdown
     const topicList = Object.entries(topicMap)
       .sort((a, b) => b[1] - a[1])
-      .map(([topic, mins]) => `  • ${topic}: ${formatDuration(mins)}`)
+      .map(([topic, mins]) => `  • <b>${topic}</b>: ${formatDuration(mins)}`)
       .join("\n");
 
     // Build the message
@@ -138,19 +137,19 @@ export async function GET(request: NextRequest) {
     let status = "";
     if (percentage >= 100) {
       emoji = "🎉";
-      status = "TARGET ACHIEVED! 🏆";
+      status = "TARGET ACHIEVED! 🏆 মাশাল্লাহ!";
     } else if (percentage >= 75) {
       emoji = "🔥";
-      status = "Almost there!";
+      status = "Almost there! আর একটু বাকি!";
     } else if (percentage >= 50) {
       emoji = "💪";
-      status = "Good progress!";
+      status = "Good progress! চালিয়ে যাও!";
     } else if (percentage >= 25) {
       emoji = "⏰";
-      status = "Keep going!";
+      status = "Keep going! পড়ার সময় হয়েছে!";
     } else {
       emoji = "🚀";
-      status = "Time to study!";
+      status = "Time to study! শুরু করে দাও!";
     }
 
     const progressBar =
@@ -159,13 +158,13 @@ export async function GET(request: NextRequest) {
 
     const message = `${emoji} <b>Study Reminder — ${today}</b>
 
-${status}
+<b>${status}</b>
 
 <b>📈 Progress:</b> ${progressBar} ${percentage}%
 <b>✅ Studied:</b> ${formatDuration(totalMinutes)}
 <b>🎯 Daily Goal:</b> ${formatDuration(dailyGoal)}
-${isGoalComplete ? "" : `<b>⏳ Remaining:</b> ${formatDuration(remaining)}\n`}
-${topicList ? `<b>📚 Topics Today:</b>\n${topicList}` : "📚 No topics logged yet — start studying!"}
+${isGoalComplete ? "<b>✨ Goal Completed! Keep it up! 🌟</b>\n" : `<b>⏳ Remaining:</b> ${formatDuration(remaining)}\n`}
+${topicList ? `<b>📚 Topics Today:</b>\n${topicList}` : "📚 No topics logged yet today — start now!"}
 
 <i>— Performance Tracker Bot 🤖</i>`;
 
@@ -173,8 +172,8 @@ ${topicList ? `<b>📚 Topics Today:</b>\n${topicList}` : "📚 No topics logged
 
     return NextResponse.json({
       success: true,
-      message: "Reminder sent!",
-      data: { totalMinutes, dailyGoal, percentage, remaining },
+      message: "Reminder sent successfully to Telegram!",
+      data: { totalMinutes, dailyGoal, percentage, remaining, today },
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

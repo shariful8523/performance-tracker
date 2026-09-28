@@ -15,36 +15,69 @@ export default function SettingsView() {
   const [notifications, setNotifications] = useState<boolean>(true);
 
   useEffect(() => {
-    const savedGoal = localStorage.getItem("daily_study_goal");
-    if (savedGoal) {
-      const total = parseInt(savedGoal, 10);
-      if (!isNaN(total) && total > 0) {
-        setGoalHours(Math.floor(total / 60));
-        setGoalMinutes(total % 60);
+    const loadGoal = async () => {
+      if (user) {
+        try {
+          const { getUserPreferences } = await import("@/lib/firestore");
+          const prefs = await getUserPreferences(user.uid);
+          if (prefs?.dailyGoal && prefs.dailyGoal > 0) {
+            setGoalHours(Math.floor(prefs.dailyGoal / 60));
+            setGoalMinutes(prefs.dailyGoal % 60);
+            localStorage.setItem("daily_study_goal", String(prefs.dailyGoal));
+            return;
+          }
+        } catch (err) {
+          console.error("Could not load preferences from Firestore:", err);
+        }
       }
-    }
-  }, []);
+      const savedGoal = localStorage.getItem("daily_study_goal");
+      if (savedGoal) {
+        const total = parseInt(savedGoal, 10);
+        if (!isNaN(total) && total > 0) {
+          setGoalHours(Math.floor(total / 60));
+          setGoalMinutes(total % 60);
+        }
+      }
+    };
+    loadGoal();
+  }, [user]);
 
   const totalGoalMinutes = goalHours * 60 + goalMinutes;
 
-  const handleSaveGoal = (e?: React.FormEvent) => {
+  const handleSaveGoal = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (totalGoalMinutes <= 0) {
       showToast("warning", "Please set a goal greater than 0 minutes");
       return;
     }
     localStorage.setItem("daily_study_goal", String(totalGoalMinutes));
+    if (user) {
+      try {
+        const { saveUserPreferences } = await import("@/lib/firestore");
+        await saveUserPreferences(user.uid, { dailyGoal: totalGoalMinutes });
+      } catch (err) {
+        console.error("Could not sync goal to cloud:", err);
+      }
+    }
     showToast(
       "success",
       `Daily goal saved: ${goalHours > 0 ? `${goalHours}h ` : ""}${goalMinutes}m / day`
     );
   };
 
-  const handlePreset = (hours: number, minutes: number = 0) => {
+  const handlePreset = async (hours: number, minutes: number = 0) => {
     setGoalHours(hours);
     setGoalMinutes(minutes);
     const total = hours * 60 + minutes;
     localStorage.setItem("daily_study_goal", String(total));
+    if (user) {
+      try {
+        const { saveUserPreferences } = await import("@/lib/firestore");
+        await saveUserPreferences(user.uid, { dailyGoal: total });
+      } catch (err) {
+        console.error("Could not sync goal to cloud:", err);
+      }
+    }
     showToast("success", `Daily goal set to ${hours}h ${minutes > 0 ? `${minutes}m ` : ""}/ day`);
   };
 
