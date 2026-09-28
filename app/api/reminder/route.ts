@@ -78,7 +78,7 @@ async function getTodayStudyData() {
   let dailyGoal = 120;
   let remindersEnabled = true;
   try {
-    const prefsSnapshot = await adminDb.collectionGroup("preferences").get();
+    const prefsSnapshot = await adminDb.collectionGroup("settings").get();
     if (!prefsSnapshot.empty) {
       const data = prefsSnapshot.docs[0].data();
       if (data?.dailyGoal && Number(data.dailyGoal) > 0) {
